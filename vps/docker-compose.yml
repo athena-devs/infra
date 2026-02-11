@@ -1,7 +1,8 @@
 volumes:
   n8n_data:
+    name: infra-n8n-data
   postgres_data:
-
+    name: infra-postgres-data
 networks:
   global-net:
     external: true
