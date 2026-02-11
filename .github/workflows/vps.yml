@@ -14,14 +14,17 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-        N8N_USER: ${{ secrets.N8N_USER }}
-        N8N_PASSWORD: ${{ secrets.N8N_PASSWORD }}
-        N8N_URL: ${{ secrets.N8N_URL }}
-        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+      N8N_USER: ${{ secrets.N8N_USER }}
+      N8N_PASSWORD: ${{ secrets.N8N_PASSWORD }}
+      N8N_URL: ${{ secrets.N8N_URL }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
     steps:
       - name: Code Checkout
@@ -30,13 +33,12 @@ jobs:
       - name: Set SSH Key
         run: |
           mkdir -p ~/.ssh/
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ env.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-    
-      - name: Deploy through SSH Pipe
-        run: |
-           echo "${{ env.GH_TOKEN }}" | ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ env.SSH_USER }}@${{ env.SSH_HOST }}
+          ssh-keyscan -H ${{ env.SSH_HOST }} >> ~/.ssh/known_hosts
 
-           envsubst < ${{ env.WORKDIR }}/docker-compose.yml | ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} \
+      - name: Deploy through SSH Pipe
+        run: |          
+          # Comando de Deploy
+          envsubst < vps/docker-compose.yml | ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ env.SSH_USER }}@${{ env.SSH_HOST }} \
           "docker network create global-net || true && docker compose -f - up -d --remove-orphans --force-recreate"
