@@ -1,0 +1,70 @@
+volumes:
+  n8n_data:
+  postgres_data:
+
+networks:
+  global-net:
+    external: true
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: always
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - global-net
+
+  db:
+    image: postgres:18.1-alpine
+    restart: always
+    container_name: infra-postgres
+    environment:
+      POSTGRES_USER: admin 
+      POSTGRES_DB: infra-db
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - global-net
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    labels:
+      - docker-volume-backup.stop-during-backup=true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d infra-db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+    networks:
+      - global-net
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M  
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+      - WEBHOOK_URL=${N8N_URL}
+      - GENERIC_TIMEZONE=America/Sao_Paulo
+
+      ## Postgres Settings
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=infra-db
+      - DB_POSTGRESDB_USER=admin
+      - DB_POSTGRESDB_PASSWORD=${DB_PASSWORD}
+      - DB_POSTGRESDB_SCHEMA=n8n
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      db:
+        condition: service_healthy

@@ -1,0 +1,42 @@
+name: Deploy Infra
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "vps/**"
+      - ".github/workflows/vps.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+        N8N_USER: ${{ secrets.N8N_USER }}
+        N8N_PASSWORD: ${{ secrets.N8N_PASSWORD }}
+        N8N_URL: ${{ secrets.N8N_URL }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v6.0.1
+
+      - name: Set SSH Key
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+    
+      - name: Deploy through SSH Pipe
+        run: |
+           echo "${{ env.GH_TOKEN }}" | ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ env.SSH_USER }}@${{ env.SSH_HOST }}
+
+           envsubst < ${{ env.WORKDIR }}/docker-compose.yml | ssh ${{ env.SSH_USER }}@${{ env.SSH_HOST }} \
+          "docker network create global-net || true && docker compose -f - up -d --remove-orphans --force-recreate"
