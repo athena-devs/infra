@@ -3,6 +3,8 @@ volumes:
     name: infra-n8n-data
   postgres_data:
     name: infra-postgres-data
+  ollama_data:
+    name: infra-ollama-data
 networks:
   global-net:
     external: true
@@ -17,7 +19,14 @@ services:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     networks:
       - global-net
-
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_backend
+    restart: unless-stopped
+    networks:
+      - global-net
+    volumes:
+      - ollama_data:/root/.ollama
   db:
     image: postgres:18.1-alpine
     restart: always
